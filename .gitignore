@@ -3,3 +3,4 @@ data/*.pkl
 output/*.pkl
 data/imdb_clean_final.csv
 output/imdb_clean_final.csv
+venv/
