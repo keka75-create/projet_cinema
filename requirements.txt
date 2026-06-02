@@ -1,0 +1,8 @@
+code requirements.txt
+streamlit
+pandas
+requests
+plotly
+openpyxl
+scikit-learn
+scipy
