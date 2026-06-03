@@ -176,59 +176,42 @@ def load_data():
     df = pd.read_csv(os.path.join(BASE_DIR, '..', 'data', 'catalogue_films.csv'))
     return df
 
+# ===== CHARGER LES REVIEWS =====
+@st.cache_data
+def load_reviews():
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    reviews = pd.read_csv(os.path.join(BASE_DIR, '..', 'output', 'reviews_with_sentiment.csv'))
+    summary = pd.read_csv(os.path.join(BASE_DIR, '..', 'output', 'reviews_summary.csv'))
+    return reviews, summary
+
 # ===== CHARGER LE MODÈLE ML =====
 @st.cache_data
 def load_ml_model():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     df = pd.read_csv(os.path.join(BASE_DIR, '..', 'data', 'catalogue_films.csv'))
-
-    # NLP sur les résumés
     tfidf = TfidfVectorizer(max_features=1000, stop_words="english")
     overview_matrix = tfidf.fit_transform(df["overview"].fillna(""))
-
-    # Genres
     genres = df["genres_imdb_list"].apply(ast.literal_eval)
     mlb_genres = MultiLabelBinarizer()
     genres_matrix = mlb_genres.fit_transform(genres)
-
-    # Réalisateurs
     directors = df["directors_names"].apply(ast.literal_eval).apply(lambda x: x[0] if len(x) > 0 else "Unknown")
     ohe = OneHotEncoder(handle_unknown="ignore")
     directors_matrix = ohe.fit_transform(directors.to_frame())
-
-    # Acteur principal
     actors = df["actors_names"].apply(ast.literal_eval).apply(lambda x: x[0] if len(x) > 0 else "Unknown")
     ohe2 = OneHotEncoder(handle_unknown="ignore")
     actors_matrix = ohe2.fit_transform(actors.to_frame())
-
-    # Compositeur
     composers = df["composers_names"].apply(ast.literal_eval).apply(lambda x: x[0] if len(x) > 0 else "Unknown")
     ohe3 = OneHotEncoder(handle_unknown="ignore")
     composers_matrix = ohe3.fit_transform(composers.to_frame())
-
-    # Pays de production
     countries = df["production_companies_country"].fillna("").str.split(",")
     mlb_country = MultiLabelBinarizer()
     country_matrix = mlb_country.fit_transform(countries)
-
-    # Studio
     studios = df["production_companies_name"].fillna("").str.split(",")
     mlb_studio = MultiLabelBinarizer()
     studio_matrix = mlb_studio.fit_transform(studios)
-
-    # Année
     year_matrix = StandardScaler().fit_transform(df[["year"]])
-
-    # Fusion
-    X = hstack([
-        overview_matrix, genres_matrix, directors_matrix,
-        actors_matrix, composers_matrix, country_matrix,
-        studio_matrix, year_matrix
-    ])
-
-    # Similarité cosinus
+    X = hstack([overview_matrix, genres_matrix, directors_matrix, actors_matrix, composers_matrix, country_matrix, studio_matrix, year_matrix])
     sim = cosine_similarity(X)
-
     return df, sim
 
 # ===== FONCTION RECOMMANDATION =====
@@ -243,6 +226,7 @@ def recommend(title, df, sim, n=4):
         return pd.DataFrame()
 
 df = load_data()
+reviews_df, summary_df = load_reviews()
 
 # ===== FONCTIONS URLs =====
 def get_poster_url(poster_path):
@@ -336,7 +320,6 @@ def afficher_detail(film):
     overview = film.get('overview', 'Pas de description disponible.')
     tmdb_id = film.get('tmdb_id', None)
 
-    # Backdrop
     backdrop_url = get_backdrop_url(film.get('backdrop_path', ''))
     if backdrop_url:
         st.markdown(f"""
@@ -370,7 +353,6 @@ def afficher_detail(film):
 
     st.divider()
 
-    # Bande annonce
     st.markdown("<h3>🎬 Bande annonce</h3>", unsafe_allow_html=True)
     if pd.notna(tmdb_id):
         with st.spinner("Chargement..."):
@@ -382,7 +364,6 @@ def afficher_detail(film):
 
     st.divider()
 
-    # Films similaires via ML
     st.markdown("<h3>🎥 Films similaires</h3>", unsafe_allow_html=True)
     with st.spinner("Calcul des recommandations..."):
         df_ml, sim = load_ml_model()
@@ -414,7 +395,35 @@ def afficher_detail(film):
 
     st.divider()
     st.markdown("<h3>🎭 Avis spectateurs</h3>", unsafe_allow_html=True)
-    st.markdown('<div class="avis-box">🎬 Les avis seront disponibles prochainement !</div>', unsafe_allow_html=True)
+
+    film_reviews = reviews_df[
+        (reviews_df['title'] == titre_fr) |
+        (reviews_df['title'] == titre)
+    ]
+
+    if len(film_reviews) == 0:
+        st.markdown('<div class="avis-box">Aucun avis disponible pour ce film.</div>', unsafe_allow_html=True)
+    else:
+        nb = len(film_reviews)
+        st.markdown(f"<p style='color:#9a8c98;'>💬 {nb} avis spectateurs</p>", unsafe_allow_html=True)
+
+        nb_affiche = st.session_state.get(f'nb_avis_{titre}', 3)
+
+        for _, avis in film_reviews.head(nb_affiche).iterrows():
+            sentiment = avis['sentiment']
+            emoji = "👍" if sentiment == "positive" else "👎" if sentiment == "negative" else "😐"
+            couleur = "#a8d5a2" if sentiment == "positive" else "#d5a2a2" if sentiment == "negative" else "#9a8c98"
+            st.markdown(f"""
+            <div style="background:#4a4e69; border-left: 4px solid {couleur}; border-radius:8px; padding:15px; margin-bottom:10px;">
+                <span style="color:{couleur}; font-weight:700;">{emoji} {sentiment.capitalize()}</span>
+                <p style="color:#f2e9e4; margin-top:8px; line-height:1.6;">{avis['content']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        if nb_affiche < nb:
+            if st.button("Voir plus d'avis", key=f"more_avis_{titre}"):
+                st.session_state[f'nb_avis_{titre}'] = nb_affiche + 3
+                st.rerun()
 
 # ===== AFFICHER GRILLE =====
 def afficher_grille(films_df, key_prefix):
@@ -508,6 +517,79 @@ def afficher_admin():
         fig4 = px.bar(top_pop, x='tmdb_popularity', y='title_fr', orientation='h', title='Top 10 films les plus populaires', color='tmdb_popularity', color_continuous_scale='RdPu')
         fig4.update_layout(paper_bgcolor='#22223b', plot_bgcolor='#22223b', font_color='#f2e9e4', title_font_color='#c9ada7', yaxis={'categoryorder': 'total ascending'})
         st.plotly_chart(fig4, use_container_width=True)
+
+    st.divider()
+    st.markdown("<h3>💬 Analyse des avis par film</h3>", unsafe_allow_html=True)
+    if len(summary_df) > 0:
+        df_admin = summary_df.copy()
+        df_admin['% positifs'] = (df_admin['nb_positives'] / df_admin['nb_reviews'] * 100).round(1)
+        df_admin['% négatifs'] = (df_admin['nb_negatives'] / df_admin['nb_reviews'] * 100).round(1)
+        df_admin = df_admin.sort_values('% positifs', ascending=False)
+
+        fig_avis = px.bar(
+            df_admin, x='title', y=['% positifs', '% négatifs'],
+            title='Ratio avis positifs / négatifs par film',
+            barmode='group',
+            color_discrete_map={'% positifs': '#a8d5a2', '% négatifs': '#d5a2a2'}
+        )
+        fig_avis.update_layout(
+            paper_bgcolor='#22223b', plot_bgcolor='#22223b',
+            font_color='#f2e9e4', title_font_color='#c9ada7',
+            xaxis_tickangle=-45
+        )
+        st.plotly_chart(fig_avis, use_container_width=True)
+
+        st.markdown("<h4>📋 Détail par film</h4>", unsafe_allow_html=True)
+        st.dataframe(
+            df_admin[['title', 'nb_reviews', '% positifs', '% négatifs', 'score_moyen']].rename(columns={'title': 'Film'}),
+            use_container_width=True, hide_index=True
+        )
+
+    # KPI - EVOLUTION DURÉE DES FILMS PAR DÉCENNIE
+    st.markdown("<h3>📊 Évolution durée par décennie</h3>", unsafe_allow_html=True)
+    movies_tmp = df.copy()
+    movies_tmp["genres_split"] = movies_tmp["genres_imdb"].str.split(",")
+    movies_tmp = movies_tmp.explode("genres_split")
+    movies_tmp["genres_split"] = movies_tmp["genres_split"].str.strip()
+
+    tous_genres = sorted(movies_tmp["genres_split"].dropna().unique().tolist())
+    top_6 = movies_tmp["genres_split"].value_counts().head(6).index.tolist()
+
+    genres_choisis = st.multiselect(
+        "Choisissez les genres à afficher :",
+        options=tous_genres,
+        default=top_6
+    )
+
+    df_kpi = (movies_tmp[movies_tmp["genres_split"].isin(genres_choisis)]
+        .groupby(["decade", "genres_split"])["runtime_imdb"]
+        .mean()
+        .reset_index())
+
+    fig_duree = px.line(
+        df_kpi.sort_values("decade"),
+        x="decade",
+        y="runtime_imdb",
+        color="genres_split",
+        facet_col="genres_split",
+        facet_col_wrap=3,
+        markers=True,
+        title="Durée moyenne par décennie pour les principaux genres",
+        labels={"decade": "Décennie", "runtime_imdb": "Durée (min)"}
+    )
+    fig_duree.update_xaxes(showgrid=True)
+    fig_duree.update_yaxes(showgrid=True)
+    fig_duree.update_layout(
+        height=700,
+        title_font_size=18,
+        showlegend=False,
+        paper_bgcolor='#22223b',
+        plot_bgcolor='#22223b',
+        font_color='#f2e9e4',
+        title_font_color='#c9ada7'
+    )
+    fig_duree.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    st.plotly_chart(fig_duree, use_container_width=True)
 
     st.divider()
     st.markdown("<h3>🖼️ Graphiques de l'analyse IMDb</h3>", unsafe_allow_html=True)
