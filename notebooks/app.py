@@ -512,7 +512,6 @@ def afficher_admin():
 
     st.divider()
 
-<<<<<<< HEAD
     if st.session_state.get('show_archives', False):
         st.markdown("<h3>📁 Archives — Bilans & Études</h3>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -547,68 +546,11 @@ def afficher_admin():
     # 1. SECTION KPIs
     st.markdown("<h3>📊 Vue d'ensemble</h3>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-=======
-    # ===== SECTION ARCHIVES =====
-    if st.session_state.get('show_archives', False):
-        st.markdown("<h3>📁 Archives — Bilans & Études</h3>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        archives_dir = os.path.join(BASE_DIR, '..', 'archives')
-        os.makedirs(archives_dir, exist_ok=True)
-        
-        uploaded = st.file_uploader("➕ Ajouter une archive", type="pdf", key="upload_archive")
-        if uploaded is not None:
-            chemin_save = os.path.join(archives_dir, uploaded.name)
-            with open(chemin_save, 'wb') as f:
-                f.write(uploaded.getbuffer())
-            st.success(f"✅ '{uploaded.name}' ajouté avec succès !")
-            st.rerun()
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        fichiers = [f for f in os.listdir(archives_dir) if f.endswith('.pdf')]
-        
-        if fichiers:
-            for fichier in fichiers:
-                chemin = os.path.join(archives_dir, fichier)
-                col_dl, col_sup = st.columns([6, 1])
-                with col_dl:
-                    with open(chemin, 'rb') as f:
-                        st.download_button(
-                            label=f"📄 {fichier}",
-                            data=f,
-                            file_name=fichier,
-                            mime="application/pdf",
-                            key=f"dl_{fichier}"
-                        )
-                with col_sup:
-                    if st.button("🗑️", key=f"sup_{fichier}"):
-                        os.remove(chemin)
-                        st.success(f"✅ '{fichier}' supprimé !")
-                        st.rerun()
-        else:
-            st.markdown("<p style='color:#9a8c98; font-style:italic;'>Aucune archive disponible pour le moment.</p>", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-    st.divider()
-    # 1. SECTION KPIs (Dashboards)
-    st.markdown("<h3>📊 Vue d'ensemble</h3>", unsafe_allow_html=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    # Calculs
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     total_films = len(df)
     note_moy = round(df['imdb_rating'].mean(), 2) if 'imdb_rating' in df.columns else 0
     nb_genres = df['main_genre'].nunique() if 'main_genre' in df.columns else 0
     annee_min = int(df['year'].min()) if 'year' in df.columns else 0
     annee_max = int(df['year'].max()) if 'year' in df.columns else 0
-<<<<<<< HEAD
-=======
-    
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     with col1:
         st.metric("Nombre de films", f"{total_films:,}")
     with col2:
@@ -620,10 +562,6 @@ def afficher_admin():
 
     st.divider()
 
-<<<<<<< HEAD
-=======
-    # Fonction utilitaire de parsing
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     def parse_list_safe(x):
         if x is None or (isinstance(x, float) and np.isnan(x)):
             return []
@@ -632,52 +570,21 @@ def afficher_admin():
         s = str(x).replace(" / ", ",").replace(" | ", ",").replace(";", ",")
         return [p.strip() for p in s.split(",") if p.strip()]
 
-<<<<<<< HEAD
-=======
-    # Préparation des données
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     df["_actors"]    = df["actors_names"].apply(parse_list_safe)
     df["_directors"] = df["directors_names"].apply(parse_list_safe)
     df["_writers"]   = df["writers_names"].apply(parse_list_safe)
     df["_composers"] = df["composers_names"].apply(parse_list_safe)
 
     # ---- GRAPHIQUE 1 : TOP N ----
-<<<<<<< HEAD
     st.markdown("<h3>🎬 Top N — Acteurs / Réalisateurs / etc.</h3>", unsafe_allow_html=True)
     col_choice = st.selectbox("Famille :", ["Acteurs", "Réalisateurs", "Scénaristes", "Compositeurs"], key="topn_famille")
     col_map = {"Acteurs": "_actors", "Réalisateurs": "_directors", "Scénaristes": "_writers", "Compositeurs": "_composers"}
     top_n = st.slider("Top (Qté) :", min_value=5, max_value=50, value=10, step=5, key="topn_slider")
-=======
-    st.markdown("<h3>🎬 Top N</h3>", unsafe_allow_html=True)
-
-    familles = ["Acteurs", "Réalisateurs", "Scénaristes", "Compositeurs"]
-    col_map = {"Acteurs": "_actors", "Réalisateurs": "_directors", "Scénaristes": "_writers", "Compositeurs": "_composers"}
-
-    if "topn_index" not in st.session_state:
-        st.session_state["topn_index"] = 0
-
-    col_prev, col_label, col_next = st.columns([1, 6, 1])
-    with col_prev:
-        if st.button("‹", key="topn_prev"):
-            st.session_state["topn_index"] = (st.session_state["topn_index"] - 1) % len(familles)
-            st.rerun()
-    with col_label:
-        col_choice = familles[st.session_state["topn_index"]]
-        st.markdown(f"<h4 style='text-align:center; color:#c9ada7;'>{col_choice}</h4>", unsafe_allow_html=True)
-    with col_next:
-        if st.button("›", key="topn_next"):
-            st.session_state["topn_index"] = (st.session_state["topn_index"] + 1) % len(familles)
-            st.rerun()
-
-    top_n = st.slider("Top (Qté) :", min_value=5, max_value=50, value=10, step=5, key="topn_slider")
-
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     col_sel = col_map[col_choice]
     exploded = df.explode(col_sel)
     vc = exploded[col_sel].dropna().value_counts().head(top_n).reset_index()
     vc.columns = ["Label", "Count"]
     vc["Label"] = vc["Label"].astype(str).str.strip("[]'\"")
-<<<<<<< HEAD
     if not vc.empty:
         fig_topn = px.bar(vc.sort_values("Count"), x="Count", y="Label", orientation="h",
             color="Count", color_continuous_scale=px.colors.sequential.Viridis,
@@ -709,83 +616,11 @@ def afficher_admin():
     try:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         df_summary = pd.read_csv(os.path.join(BASE_DIR, '..', 'output', 'reviews_summary.csv'))
-=======
-
-    if not vc.empty:
-        fig_topn = px.bar(
-            vc.sort_values("Count"),
-            x="Count", y="Label",
-            orientation="h",
-            color="Count",
-            color_continuous_scale=px.colors.sequential.Viridis,
-            title=f"{col_choice} — Top {top_n}"
-        )
-        fig_topn.update_layout(
-            margin=dict(l=220, r=40, t=70, b=60), height=550,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#f2e9e4'
-        )
-        st.plotly_chart(fig_topn, use_container_width=True)
-
-    # ---- GRAPHIQUE 2 : HISTOGRAMME ----
-    st.markdown("<h3>📊 Distribution</h3>", unsafe_allow_html=True)
-    df["runtime_imdb"] = pd.to_numeric(df.get("runtime_imdb"), errors="coerce")
-    df["imdb_rating"]  = pd.to_numeric(df.get("imdb_rating"),  errors="coerce")
-
-    variables = ["Distribution Durée", "Distribution Notes"]
-
-    if "hist_index" not in st.session_state:
-        st.session_state["hist_index"] = 0
-
-    col_prev, col_label, col_next = st.columns([1, 6, 1])
-    with col_prev:
-        if st.button("‹", key="hist_prev"):
-            st.session_state["hist_index"] = (st.session_state["hist_index"] - 1) % len(variables)
-            st.rerun()
-    with col_label:
-        hist_choice = variables[st.session_state["hist_index"]]
-        st.markdown(f"<h4 style='text-align:center; color:#c9ada7;'>{hist_choice}</h4>", unsafe_allow_html=True)
-    with col_next:
-        if st.button("›", key="hist_next"):
-            st.session_state["hist_index"] = (st.session_state["hist_index"] + 1) % len(variables)
-            st.rerun()
-
-    hist_bins = st.slider("Nb classes :", min_value=10, max_value=100, value=30, step=5, key="hist_bins")
-
-    hist_col = "runtime_imdb" if hist_choice == "Distribution Durée" else "imdb_rating"
-    clean = df[hist_col].dropna()
-
-    fig_hist = px.histogram(
-        clean, x=clean, nbins=hist_bins,
-        color_discrete_sequence=["#3B528B"],
-        title=f"{hist_choice} — {hist_bins} classes"
-    )
-    fig_hist.update_layout(
-        height=500, margin=dict(l=60, r=40, t=60, b=60), bargap=0.05,
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#f2e9e4'
-    )
-    st.plotly_chart(fig_hist, use_container_width=True)
-
-    st.divider()
-
-    # ---- GRAPHIQUE 3 : SATISFACTION VS POPULARITÉ ----
-    st.markdown("<h3>📈 Aide à la décision : Satisfaction vs Popularité</h3>", unsafe_allow_html=True)
-    
-    try:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        df_summary = pd.read_csv(os.path.join(BASE_DIR, '..', 'output', 'reviews_summary.csv'))
-
-        # Filtres
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
         col_f1, col_f2 = st.columns([2, 2])
         with col_f1:
             min_avis = st.slider("Nombre minimum d'avis :", 0, int(df_summary['nb_reviews'].max()), 5, key="min_avis_slider")
         with col_f2:
             filtre_type = st.radio("Afficher :", ["Positifs", "Négatifs", "Les deux"], horizontal=True, key="filtre_avis")
-<<<<<<< HEAD
         df_filtre_avis = df_summary[df_summary['nb_reviews'] >= min_avis].copy()
         if filtre_type == "Positifs":
             df_plot = df_filtre_avis.sort_values("nb_positives", ascending=True).tail(20)
@@ -804,39 +639,6 @@ def afficher_admin():
             paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4',
             xaxis_title="Nombre d'avis", yaxis_title="Film", legend_title="Type d'avis")
         st.plotly_chart(fig_avis, use_container_width=True)
-=======
-
-        df_filtre_avis = df_summary[df_summary['nb_reviews'] >= min_avis].copy()
-
-        if filtre_type == "Positifs":
-            df_plot = df_filtre_avis.sort_values("nb_positives", ascending=True).tail(20)
-            fig_avis = px.bar(df_plot, x="nb_positives", y="title", orientation="h",
-                title="Top films — Avis positifs",
-                color_discrete_sequence=["#c9ada7"])
-        elif filtre_type == "Négatifs":
-            df_plot = df_filtre_avis.sort_values("nb_negatives", ascending=True).tail(20)
-            fig_avis = px.bar(df_plot, x="nb_negatives", y="title", orientation="h",
-                title="Top films — Avis négatifs",
-                color_discrete_sequence=["#9a8c98"])
-        else:
-            df_plot = df_filtre_avis.sort_values("nb_positives", ascending=True).tail(20)
-            fig_avis = px.bar(df_plot, x=["nb_positives", "nb_negatives"], y="title",
-                orientation="h", barmode="group",
-                title="Top films — Avis positifs vs négatifs",
-                color_discrete_sequence=["#c9ada7", "#9a8c98"])
-
-        fig_avis.update_layout(
-            height=550,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#f2e9e4',
-            xaxis_title="Nombre d'avis",
-            yaxis_title="Film",
-            legend_title="Type d'avis"
-        )
-        st.plotly_chart(fig_avis, use_container_width=True)
-
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
     except FileNotFoundError:
         st.warning("⚠️ Fichier reviews_summary.csv introuvable.")
 
@@ -844,7 +646,6 @@ def afficher_admin():
 def afficher_bandeau(titre, films_df, key_prefix):
     st.markdown(f"<h3>{titre}</h3>", unsafe_allow_html=True)
     
-<<<<<<< HEAD
     films = films_df.head(20).reset_index(drop=True)
     
     if f"page_{key_prefix}" not in st.session_state:
@@ -885,41 +686,6 @@ def afficher_bandeau(titre, films_df, key_prefix):
             </div>
             """, unsafe_allow_html=True)
             if st.button("▶", key=f"{key_prefix}_{page}_{col_idx}"):
-=======
-    films = films_df.head(10)
-    cartes_html = ""
-    for idx, (_, film) in enumerate(films.iterrows()):
-        poster_url = get_poster_url(film.get('poster_path', ''))
-        titre_film = film.get('title_fr', film.get('original_title_imdb', ''))
-        note = round(film.get('imdb_rating', 0), 1)
-        cartes_html += f"""
-        <div style="min-width:150px; max-width:150px; background:#4a4e69; border-radius:10px; overflow:hidden; border:1px solid #9a8c98; cursor:pointer; flex-shrink:0;">
-            <img src="{poster_url}" style="width:100%; height:200px; object-fit:cover;">
-            <div style="padding:8px;">
-                <p style="color:#f2e9e4; font-size:11px; font-weight:700; margin:0 0 4px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{titre_film}</p>
-                <p style="color:#c9ada7; font-size:11px; margin:0;">⭐ {note}</p>
-            </div>
-        </div>
-        """
-    
-    components.html(f"""
-    <div style="position:relative; width:100%;">
-        <button onclick="document.getElementById('{key_prefix}').scrollLeft -= 300" 
-            style="position:absolute; left:0; top:50%; transform:translateY(-50%); z-index:10; background:#c9ada7; border:none; border-radius:50%; width:35px; height:35px; font-size:18px; cursor:pointer;">‹</button>
-        <div id="{key_prefix}" style="display:flex; gap:10px; overflow-x:auto; scroll-behavior:smooth; padding:10px 45px; scrollbar-width:none;">
-            {cartes_html}
-        </div>
-        <button onclick="document.getElementById('{key_prefix}').scrollLeft += 300"
-            style="position:absolute; right:0; top:50%; transform:translateY(-50%); z-index:10; background:#c9ada7; border:none; border-radius:50%; width:35px; height:35px; font-size:18px; cursor:pointer;">›</button>
-    </div>
-    """, height=260)
-    
-    cols = st.columns(10)
-    for idx, (_, film) in enumerate(films.iterrows()):
-        with cols[idx]:
-            st.markdown('<div class="card-wrapper">', unsafe_allow_html=True)
-            if st.button("▶", key=f"{key_prefix}_{idx}"):
->>>>>>> 074ffe9aa960af8e215671e1ea8bfe606e559530
                 st.session_state['film_selectionne'] = film.to_dict()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
