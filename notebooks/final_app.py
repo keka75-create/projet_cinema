@@ -172,7 +172,7 @@ hr { border-color: #4a4e69 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ===== CHARGER LES DONNÉES =====
+# ===== CHARGER LES DONNEES =====
 @st.cache_data
 def load_data():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -242,7 +242,7 @@ def get_backdrop_url(backdrop_path):
         return f"https://image.tmdb.org/t/p/original{backdrop_path}"
     return None
 
-# ===== RECUPERE BANDE ANNONCE =====
+# ===== RÈCUPÈRER BANDE ANNONCE =====
 @st.cache_data
 def get_trailer(tmdb_id):
     try:
@@ -492,7 +492,7 @@ def afficher_grille(films_df, key_prefix):
                 # Infos
                 st.write(f"Note : {note}/10")
                 
-                # Bouton "Voir plus" (plus parlant que la flèche)
+                # Bouton "Voir plus" (plus parlant que la fleche)
                 if st.button("Voir plus", key=f"{key_prefix}_{idx}"):
                     st.session_state['film_selectionne'] = film.to_dict()
                     st.rerun()
@@ -513,7 +513,7 @@ def afficher_admin():
     st.divider()
 
     if st.session_state.get('show_archives', False):
-        st.markdown("<h3>📁 Archives — Bilans & Études</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>📁 Archives — Bilans & Etudes</h3>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         archives_dir = os.path.join(BASE_DIR, '..', 'archives')
@@ -527,12 +527,17 @@ def afficher_admin():
         st.markdown("<br>", unsafe_allow_html=True)
         fichiers = [f for f in os.listdir(archives_dir) if f.endswith('.pdf')]
         if fichiers:
+            import base64
             for fichier in fichiers:
                 chemin = os.path.join(archives_dir, fichier)
+                with open(chemin, 'rb') as f:
+                    pdf_data = f.read()
+                b64 = base64.b64encode(pdf_data).decode('utf-8')
+                st.markdown(f"**📄 {fichier}**")
+                st.markdown(f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
                 col_dl, col_sup = st.columns([6, 1])
                 with col_dl:
-                    with open(chemin, 'rb') as f:
-                        st.download_button(label=f"📄 {fichier}", data=f, file_name=fichier, mime="application/pdf", key=f"dl_{fichier}")
+                    st.download_button(label=f"⬇️ Télécharger", data=pdf_data, file_name=fichier, mime="application/pdf", key=f"dl_{fichier}")
                 with col_sup:
                     if st.button("🗑", key=f"sup_{fichier}"):
                         os.remove(chemin)
@@ -575,7 +580,126 @@ def afficher_admin():
     df["_writers"]   = df["writers_names"].apply(parse_list_safe)
     df["_composers"] = df["composers_names"].apply(parse_list_safe)
 
-    # ---- GRAPHIQUE 1 : TOP N ----
+    # ---- 1. VUE D'ENSEMBLE ----
+    st.markdown("<h3>📊 Vue d'ensemble</h3>", unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    total_films = len(df)
+    note_moy = round(df['imdb_rating'].mean(), 2) if 'imdb_rating' in df.columns else 0
+    nb_genres = df['main_genre'].nunique() if 'main_genre' in df.columns else 0
+    annee_min = int(df['year'].min()) if 'year' in df.columns else 0
+    annee_max = int(df['year'].max()) if 'year' in df.columns else 0
+    with col1:
+        st.metric("Nombre de films", f"{total_films:,}")
+    with col2:
+        st.metric("Note moyenne", f"⭐ {note_moy}")
+    with col3:
+        st.metric("Genres", nb_genres)
+    with col4:
+        st.metric("Période", f"{annee_min}-{annee_max}")
+
+    st.divider()
+
+    # Chargement movies_final une seule fois
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    movies = None
+    movies_genres = None
+    try:
+        movies = pd.read_csv(os.path.join(BASE_DIR, '..', 'data', 'movies_final.csv'))
+        movies_genres = movies.copy()
+        movies_genres["genres_final"] = movies_genres["genres_final"].str.split(",")
+        movies_genres = movies_genres.explode("genres_final").reset_index(drop=True)
+        movies_genres["genres_final"] = movies_genres["genres_final"].str.strip()
+    except Exception:
+        pass
+
+    # ---- 2. TOP GENRES ----
+    st.markdown("<h3>🎬 Top genres les plus représentés</h3>", unsafe_allow_html=True)
+    if movies_genres is not None:
+        try:
+            kpi_genres = movies_genres["genres_final"].value_counts(normalize=True).mul(100).rename_axis("genres_final").reset_index(name="Pourcentage")
+            kpi_genres = kpi_genres.sort_values("Pourcentage", ascending=False).reset_index(drop=True)
+            top_n_genres = st.slider("Top N genres :", min_value=3, max_value=min(30, len(kpi_genres)), value=10, step=1, key="kpi2_topn")
+            df_kpi2 = kpi_genres.head(top_n_genres).sort_values("Pourcentage", ascending=True)
+            fig_kpi2 = px.bar(df_kpi2, x="Pourcentage", y="genres_final", orientation="h",
+                color="Pourcentage", color_continuous_scale=px.colors.sequential.Viridis,
+                labels={"genres_final": "Genre", "Pourcentage": "Pourcentage (%)"},
+                title=f"Top {top_n_genres} des genres les plus représentés", height=520)
+            fig_kpi2.update_layout(margin=dict(l=160, r=40, t=70, b=40),
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4')
+            st.plotly_chart(fig_kpi2, use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠ Top genres indisponible : {e}")
+    else:
+        st.warning("⚠ Fichier movies_final.csv introuvable.")
+
+    st.divider()
+
+    # ---- 3. REPARTITION GENRES PAR DECENNIE ----
+    st.markdown("<h3>📊 Répartition des films par genre au cours du temps</h3>", unsafe_allow_html=True)
+    if movies_genres is not None:
+        try:
+            genre_decennie = movies_genres.groupby(["decennie", "genres_final"]).size().reset_index(name="nb_films")
+            genre_decennie["total_decennie"] = genre_decennie.groupby("decennie")["nb_films"].transform("sum")
+            genre_decennie["pourcentage"] = (genre_decennie["nb_films"] / genre_decennie["total_decennie"]) * 100
+            top_genres_kpi3 = movies_genres["genres_final"].value_counts().head(8).index
+            genre_decennie_top = genre_decennie[genre_decennie["genres_final"].isin(top_genres_kpi3)].copy()
+            genre_decennie_top["decennie_num"] = pd.to_numeric(genre_decennie_top["decennie"], errors="coerce")
+            fig_kpi3 = px.line(genre_decennie_top, x="decennie_num", y="pourcentage", color="genres_final",
+                markers=True, labels={"decennie_num": "Décennie", "pourcentage": "Pourcentage (%)", "genres_final": "Genre"},
+                color_discrete_sequence=px.colors.sequential.Viridis,
+                title="Évolution des genres par décennie", height=600)
+            decades = sorted(genre_decennie_top["decennie_num"].dropna().unique())
+            fig_kpi3.update_xaxes(rangeslider_visible=True, tickmode="array", tickvals=decades,
+                ticktext=[str(int(d)) for d in decades], showgrid=False)
+            fig_kpi3.update_yaxes(showgrid=True)
+            fig_kpi3.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4')
+            st.plotly_chart(fig_kpi3, use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠ Répartition genres indisponible : {e}")
+
+    st.divider()
+
+    # ---- 4. EVOLUTION DUREE DES FILMS ----
+    st.markdown("<h3>⏱ Évolution de la durée des films par décennie</h3>", unsafe_allow_html=True)
+    if movies_genres is not None:
+        try:
+            genre_counts = movies_genres["genres_final"].value_counts()
+            all_genres = genre_counts.index.tolist()
+            genres_choisis = st.multiselect("Sélectionner les genres :", all_genres, default=genre_counts.head(6).index.tolist(), key="kpi1_genres")
+            if genres_choisis:
+                selected = genres_choisis[:20]
+                df_kpi1 = movies_genres[movies_genres["genres_final"].isin(selected)].groupby(["decennie", "genres_final"])["runtime_final"].mean().reset_index()
+                df_kpi1["decennie_num"] = pd.to_numeric(df_kpi1["decennie"], errors="coerce")
+                df_kpi1 = df_kpi1.sort_values(["genres_final", "decennie_num"])
+                fig_kpi1 = px.line(df_kpi1, x="decennie_num", y="runtime_final", color="genres_final",
+                    facet_col="genres_final", facet_col_wrap=3, markers=True,
+                    title=f"Durée moyenne par décennie — {len(selected)} genre(s)",
+                    labels={"decennie_num": "Décennie", "runtime_final": "Durée (min)"},
+                    color_discrete_sequence=px.colors.sequential.Viridis)
+                fig_kpi1.update_layout(height=300 + 220 * ((len(selected) - 1) // 3 + 1),
+                    margin=dict(t=90, l=60, r=40, b=60), showlegend=False,
+                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4')
+                fig_kpi1.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+                st.plotly_chart(fig_kpi1, use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠ Évolution durée indisponible : {e}")
+
+    st.divider()
+
+    # ---- 5. TOP N ACTEURS/REALISATEURS ----
+    def parse_list_safe(x):
+        if x is None or (isinstance(x, float) and np.isnan(x)):
+            return []
+        if isinstance(x, (list, tuple, set)):
+            return [str(i).strip() for i in x if str(i).strip()]
+        s = str(x).replace(" / ", ",").replace(" | ", ",").replace(";", ",")
+        return [p.strip() for p in s.split(",") if p.strip()]
+
+    df["_actors"]    = df["actors_names"].apply(parse_list_safe)
+    df["_directors"] = df["directors_names"].apply(parse_list_safe)
+    df["_writers"]   = df["writers_names"].apply(parse_list_safe)
+    df["_composers"] = df["composers_names"].apply(parse_list_safe)
+
     st.markdown("<h3>🎬 Top N — Acteurs / Réalisateurs / etc.</h3>", unsafe_allow_html=True)
     col_choice = st.selectbox("Famille :", ["Acteurs", "Réalisateurs", "Scénaristes", "Compositeurs"], key="topn_famille")
     col_map = {"Acteurs": "_actors", "Réalisateurs": "_directors", "Scénaristes": "_writers", "Compositeurs": "_composers"}
@@ -595,7 +719,34 @@ def afficher_admin():
 
     st.divider()
 
-    # ---- GRAPHIQUE 2 : HISTOGRAMME ----
+    # ---- 6. TOP PAYS / SOCIETES ----
+    st.markdown("<h3>🌍 Top Pays / Sociétés de production</h3>", unsafe_allow_html=True)
+    try:
+        df_alix = df.copy()
+        df_alix["_countries"] = df_alix["production_companies_country"].apply(parse_list_safe)
+        df_alix["_companies"] = df_alix["production_companies_name"].apply(parse_list_safe)
+        famille_alix = st.selectbox("Famille :", ["Pays", "Sociétés"], key="kpi5_famille")
+        top_n_alix = st.slider("Top (Qté) :", min_value=5, max_value=50, value=10, step=5, key="kpi5_topn")
+        col_alix = "_countries" if famille_alix == "Pays" else "_companies"
+        exploded_alix = df_alix.explode(col_alix)
+        vc_alix = exploded_alix[col_alix].dropna().value_counts().head(top_n_alix).reset_index()
+        vc_alix.columns = ["Label", "Count"]
+        vc_alix["Label"] = vc_alix["Label"].astype(str).str.strip("[]'\"")
+        vc_alix = vc_alix[vc_alix["Label"] != ""]
+        vc_alix = vc_alix[vc_alix["Label"] != "nan"]
+        vc_alix = vc_alix.groupby("Label")["Count"].sum().reset_index().sort_values("Count", ascending=True)
+        fig_kpi5 = px.bar(vc_alix.sort_values("Count"), x="Count", y="Label", orientation="h",
+            color="Count", color_continuous_scale=px.colors.sequential.Viridis,
+            title=f"{famille_alix} — Top {top_n_alix}")
+        fig_kpi5.update_layout(margin=dict(l=220, r=40, t=70, b=60), height=550,
+            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4')
+        st.plotly_chart(fig_kpi5, use_container_width=True)
+    except Exception as e:
+        st.warning(f"⚠ Top Pays/Sociétés indisponible : {e}")
+
+    st.divider()
+
+    # ---- 7. DISTRIBUTION DUREE / NOTES ----
     st.markdown("<h3>📊 Distribution — Durée / Notes</h3>", unsafe_allow_html=True)
     df["runtime_imdb"] = pd.to_numeric(df.get("runtime_imdb"), errors="coerce")
     df["imdb_rating"]  = pd.to_numeric(df.get("imdb_rating"),  errors="coerce")
@@ -611,10 +762,36 @@ def afficher_admin():
 
     st.divider()
 
-    # ---- GRAPHIQUE 3 : SATISFACTION VS POPULARITÉ----
+    # ---- 8. RENTABILITE ROI ----
+    st.markdown("<h3>💰 Rentabilité par genre (ROI)</h3>", unsafe_allow_html=True)
+    if movies_genres is not None:
+        try:
+            profit = movies_genres.dropna(subset=["budget_tmdb", "revenue_tmdb", "genres_final"]).copy()
+            profit = profit[(profit["budget_tmdb"] > 0) & (profit["revenue_tmdb"] > 0)]
+            profit["roi"] = (profit["revenue_tmdb"] - profit["budget_tmdb"]) / profit["budget_tmdb"]
+            rentabilite_genre = profit.groupby("genres_final")["roi"].mean().reset_index().sort_values(by="roi", ascending=False)
+            col_r1, col_r2 = st.columns([2, 2])
+            with col_r1:
+                top_n_roi = st.slider("Top N :", min_value=3, max_value=min(30, len(rentabilite_genre)), value=10, step=1, key="kpi4_topn")
+            with col_r2:
+                ordre_roi = st.radio("Ordre :", ["Décroissant", "Croissant"], horizontal=True, key="kpi4_ordre")
+            df_kpi4 = rentabilite_genre.head(top_n_roi) if ordre_roi == "Décroissant" else rentabilite_genre.sort_values("roi", ascending=True).head(top_n_roi)
+            df_kpi4 = df_kpi4.sort_values("roi", ascending=True)
+            fig_kpi4 = px.bar(df_kpi4, x="roi", y="genres_final", orientation="h",
+                color="roi", color_continuous_scale=px.colors.sequential.Viridis,
+                labels={"roi": "ROI moyen", "genres_final": "Genre"},
+                title=f"Top {top_n_roi} Genres par ROI moyen", height=520)
+            fig_kpi4.update_layout(margin=dict(l=160, r=40, t=70, b=40),
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#f2e9e4')
+            st.plotly_chart(fig_kpi4, use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠ ROI indisponible : {e}")
+
+    st.divider()
+
+    # ---- 9. SATISFACTION VS POPULARITE ----
     st.markdown("<h3>📈 Aide à la décision : Satisfaction vs Popularité</h3>", unsafe_allow_html=True)
     try:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         df_summary = pd.read_csv(os.path.join(BASE_DIR, '..', 'output', 'reviews_summary.csv'))
         col_f1, col_f2 = st.columns([2, 2])
         with col_f1:
