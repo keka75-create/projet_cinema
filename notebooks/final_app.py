@@ -547,39 +547,7 @@ def afficher_admin():
         st.markdown("<br>", unsafe_allow_html=True)
 
     st.divider()
-
-    # 1. SECTION KPIs
-    st.markdown("<h3>📊 Vue d'ensemble</h3>", unsafe_allow_html=True)
-    col1, col2, col3, col4 = st.columns(4)
-    total_films = len(df)
-    note_moy = round(df['imdb_rating'].mean(), 2) if 'imdb_rating' in df.columns else 0
-    nb_genres = df['main_genre'].nunique() if 'main_genre' in df.columns else 0
-    annee_min = int(df['year'].min()) if 'year' in df.columns else 0
-    annee_max = int(df['year'].max()) if 'year' in df.columns else 0
-    with col1:
-        st.metric("Nombre de films", f"{total_films:,}")
-    with col2:
-        st.metric("Note moyenne", f"⭐ {note_moy}")
-    with col3:
-        st.metric("Genres", nb_genres)
-    with col4:
-        st.metric("Période", f"{annee_min}-{annee_max}")
-
-    st.divider()
-
-    def parse_list_safe(x):
-        if x is None or (isinstance(x, float) and np.isnan(x)):
-            return []
-        if isinstance(x, (list, tuple, set)):
-            return [str(i).strip() for i in x if str(i).strip()]
-        s = str(x).replace(" / ", ",").replace(" | ", ",").replace(";", ",")
-        return [p.strip() for p in s.split(",") if p.strip()]
-
-    df["_actors"]    = df["actors_names"].apply(parse_list_safe)
-    df["_directors"] = df["directors_names"].apply(parse_list_safe)
-    df["_writers"]   = df["writers_names"].apply(parse_list_safe)
-    df["_composers"] = df["composers_names"].apply(parse_list_safe)
-
+    
     # ---- 1. VUE D'ENSEMBLE ----
     st.markdown("<h3>📊 Vue d'ensemble</h3>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
