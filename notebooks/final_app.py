@@ -15,6 +15,29 @@ import plotly.express as px
 import numpy as np
 from deep_translator import GoogleTranslator
 
+TRAD_GENRES = {
+    "Drama": "Drame",
+    "Comedy": "Comédie",
+    "Action": "Action",
+    "Romance": "Romance",
+    "Thriller": "Thriller",
+    "Horror": "Horreur",
+    "Adventure": "Aventure",
+    "Crime": "Policier",
+    "Mystery": "Mystère",
+    "Sci-Fi": "Science-Fiction",
+    "Biography": "Biographie",
+    "Animation": "Animation",
+    "Fantasy": "Fantastique",
+    "History": "Histoire",
+    "Music": "Musique",
+    "Sport": "Sport",
+    "War": "Guerre",
+    "Family": "Famille",
+    "Documentary": "Documentaire",
+    "Western": "Western"
+}
+
 TMDB_API_KEY = "db1c1e421c66aba5fe3ea45a2851e3fa"
 
 # ===== CONFIGURATION DE LA PAGE =====
@@ -510,7 +533,7 @@ def afficher_detail(film):
         st.session_state['film_selectionne'] = None
         st.rerun()
 
-# ===== AFFICHER GRILLE (CORRIGÉ : DECOUPAGE EN LIGNES POUR RECHERCHE) =====
+# ===== AFFICHER GRILLE =====
 def afficher_grille(films_df, key_prefix):
     # On transforme le DataFrame en liste pour pouvoir le découper proprement par paquets de 4
     films_list = list(films_df.iterrows())
@@ -526,6 +549,11 @@ def afficher_grille(films_df, key_prefix):
                     poster_url = get_poster_url(film.get('poster_path', ''))
                     titre = film.get('title_fr', film.get('original_title_imdb', 'Titre inconnu'))
                     genres = film.get('genres_imdb', 'N/A')
+
+                    genres = ", ".join(
+                        TRAD_GENRES.get(g.strip(), g.strip())
+                        for g in genres.split(",")
+)
                     note = round(film.get('imdb_rating', 0), 1) if pd.notna(film.get('imdb_rating')) else '?'
                     
                     # 1. L'image entière (sans coupure)
@@ -607,7 +635,7 @@ def afficher_admin():
     annee_min = int(df['year'].min()) if 'year' in df.columns else 0
     annee_max = int(df['year'].max()) if 'year' in df.columns else 0
     with col1:
-        st.metric("Nombre de films", f"{total_films:,}")
+        st.metric("Nombre de films", f"{total_films:,}".replace(",", " "))
     with col2:
         st.metric("Note moyenne", f"⭐ {note_moy}")
     with col3:
@@ -872,6 +900,10 @@ def afficher_bandeau(titre, films_df, key_prefix):
                 titre_film = film.get('title_fr', film.get('original_title_imdb', ''))
                 note = round(film.get('imdb_rating', 0), 1) if pd.notna(film.get('imdb_rating')) else '?'
                 genres = film.get('genres_imdb', 'N/A')
+                genres = ", ".join(
+                    TRAD_GENRES.get(g.strip(), g.strip())
+                    for g in genres.split(",")
+                )
                 
                 # 1. L'image (entière, s'adapte sans jamais déborder ni se couper)
                 st.image(poster_url, use_container_width=True)
@@ -925,8 +957,27 @@ if page == "🏠 Accueil":
         with col1:
             recherche_accueil = st.text_input("🔍 Rechercher un film", placeholder="Ex: Inception...", key="recherche_accueil")
         with col2:
-            tous_genres_accueil = ['Tous'] + sorted(df['genres_imdb'].dropna().str.split(',').explode().str.strip().value_counts().head(10).index.tolist())
-            genre_accueil = st.selectbox("🎬 Filtrer par genre :", tous_genres_accueil, key="genre_accueil")
+            genres_originaux = sorted(
+                df['genres_imdb']
+                .dropna()
+                .str.split(',')
+                .explode()
+                .str.strip()
+                .value_counts()
+                .head(10)
+                .index.tolist()
+            )
+
+            genres_affiches = ["Tous"] + [
+                TRAD_GENRES.get(g, g)
+                for g in genres_originaux
+            ]
+
+            genre_accueil = st.selectbox(
+                "🎬 Filtrer par genre :",
+                genres_affiches,
+                key="genre_accueil"
+            )
 
         if recherche_accueil and len(recherche_accueil) >= 2:
             df_recherche = df[
@@ -955,31 +1006,31 @@ if page == "🏠 Accueil":
                 
                 genre_emojis = {
                     "Drama": "🎭",
-                    "Comedy": "😂",
+                    "Comedie": "😂",
                     "Action": "💥",
                     "Romance": "❤️",
                     "Thriller": "😱",
                     "Horror": "👻",
-                    "Adventure": "🗺️",
+                    "Aventure": "🗺️",
                     "Crime": "🔍",
-                    "Biography": "📖",
+                    "Biographie": "📖",
                     "Animation": "✨",
-                    "Fantasy": "🧙",
-                    "Sci-Fi": "🚀",
-                    "History": "🏛️",
+                    "Fantastique": "🧙",
+                    "Science-Fiction": "🚀",
+                    "Histoire": "🏛️",
                     "Music": "🎵",
                     "Sport": "🏆",
-                    "War": "⚔️",
-                    "Family": "👨‍👩‍👧",
-                    "Documentary": "🎥",
-                    "Mystery": "🕵️",
+                    "Guerre": "⚔️",
+                    "Famille": "👨‍👩‍👧",
+                    "Documentaire": "🎥",
+                    "Mystere": "🕵️",
                     "Western": "🤠",
                 }
                 top_genres = [g for g in df['genres_imdb'].dropna().str.split(',').explode().str.strip().value_counts().head(6).index.tolist() if g not in ["Tous", "", "tous", "TOUS"]]
                 for genre in top_genres:
                     films_genre = df[df['genres_imdb'].str.contains(genre, case=False, na=False)].sort_values('imdb_rating', ascending=False)
                     emoji = genre_emojis.get(genre, "🎬")
-                    afficher_bandeau(f"{emoji} {genre}", films_genre, f"genre_{genre}")
+                    afficher_bandeau(f"{emoji} {TRAD_GENRES.get(genre, genre)}", films_genre, f"genre_{genre}")
                     st.divider()
                     
            else:
