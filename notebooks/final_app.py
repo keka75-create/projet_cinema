@@ -304,9 +304,16 @@ if 'admin_connecte' not in st.session_state:
 if 'show_login' not in st.session_state:
     st.session_state['show_login'] = False
 
-# ===== TITRE =====
-st.markdown("<h1>Ciné23</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:##c9a84c; font-size:16px; margin-top:-20px;'>Découvrez notre sélection de films</p>", unsafe_allow_html=True)
+# ===== TITRE & LOGO =====
+dossier_actuel = os.path.dirname(os.path.abspath(__file__))
+chemin_logo = os.path.join(dossier_actuel, "logo-remove.png")
+
+logo_col1, logo_col2, logo_col3 = st.columns([2, 1, 2])
+
+with logo_col2:
+    st.image(chemin_logo, use_container_width=True)
+
+st.markdown("<p style='text-align:center; color:#c9a84c; font-size:16px; margin-top:-20px;'>Découvrez notre sélection de films</p>", unsafe_allow_html=True)
 st.divider()
 
 # ===== SLIDESHOW =====
