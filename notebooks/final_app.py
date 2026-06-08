@@ -538,10 +538,10 @@ def afficher_grille(films_df, key_prefix):
     # On transforme le DataFrame en liste pour pouvoir le découper proprement par paquets de 4
     films_list = list(films_df.iterrows())
     
-    # On boucle de 4 en 4 pour créer des lignes horizontales 100% indépendantes
+    # On boucle de 4 en 4 pour créer des lignes horizontales
     for i in range(0, len(films_list), 4):
         paquet_de_films = films_list[i:i+4]
-        cols = st.columns(4) # Une nouvelle ligne s'ouvre, alignée au pixel près
+        cols = st.columns(4) 
         
         for idx, (_, film) in enumerate(paquet_de_films):
             with cols[idx]:
@@ -556,7 +556,7 @@ def afficher_grille(films_df, key_prefix):
 )
                     note = round(film.get('imdb_rating', 0), 1) if pd.notna(film.get('imdb_rating')) else '?'
                     
-                    # 1. L'image entière (sans coupure)
+                    # 1. L'image entière
                     st.image(poster_url, use_container_width=True)
                     
                     # 2. Zone fixe de 110px pour le Titre + Genre + Note
@@ -577,7 +577,7 @@ def afficher_grille(films_df, key_prefix):
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # 3. Le bouton "Voir plus" (parfaitement aligné sur la même ligne horizontale)
+                    # 3. Le bouton "Voir plus" 
                     if st.button("Voir plus", key=f"{key_prefix}_{i+idx}", use_container_width=True):
                         st.session_state['film_selectionne'] = film.to_dict()
                         st.rerun()
@@ -894,7 +894,7 @@ def afficher_bandeau(titre, films_df, key_prefix):
     cols = st.columns(5)
     for col_idx, (_, film) in enumerate(films_page.iterrows()):
         with cols[col_idx]:
-            # ON UTILISE UN CONTAINER STREAMLIT : Tout reste enfermé proprement dedans !
+            # ON UTILISE UN CONTAINER STREAMLIT : Tout reste enfermé proprement dedans
             with st.container(border=True):
                 poster_url = get_poster_url(film.get('poster_path', ''))
                 titre_film = film.get('title_fr', film.get('original_title_imdb', ''))
@@ -905,7 +905,7 @@ def afficher_bandeau(titre, films_df, key_prefix):
                     for g in genres.split(",")
                 )
                 
-                # 1. L'image (entière, s'adapte sans jamais déborder ni se couper)
+                # 1. L'image
                 st.image(poster_url, use_container_width=True)
                 
                 # 2. Zone fixe de 110px pour bloquer le texte et la note au même niveau
@@ -925,7 +925,7 @@ def afficher_bandeau(titre, films_df, key_prefix):
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 3. Le bouton Play (Généré à l'intérieur du container, il ne peut plus s'échapper !)
+                # 3. Le bouton Play généré à l'intérieur du container
                 if st.button("Voir plus", key=f"{key_prefix}_{page_b}_{col_idx}"):
                     st.session_state['film_selectionne'] = film.to_dict()
                     st.rerun()
